@@ -4,52 +4,111 @@
 # Reference can be used without Item object as it has its own priority.
 # Item gives oportunity to overide that priority and metadata support.
 
-from mimap import metadata
 from mimap import reference
 
 
-class Item(reference.Priority):
+class Priority():
+    # Simple class for setting priority.
+    # Classes supporting priority should implement this class.
+    def __init__(self, priority) -> None:
+        # Calling method within initializer can cause problems.
+        # Care should be taken when extending method called by __init__().
+        self._setup_priority(priority)
+
+    def _setup_priority(self, priority):
+        # Setup priority priority to avoid it from being None.
+        if priority != None:
+            self._priority = priority
+        else:
+            # This is default priority when priority is None.
+            self._priority = 1
+
+    def get_priority(self):
+        return self._priority
+
+    def set_priority(self, priority):
+        self._priority = priority
+
+
+
+class Item(Priority):
     # Links reference object to metadata and priority.
     # Item has precidence over reference own priority.
-    def __init__(self, _reference, _metadata={}, priority_callable=None):
-        super().__init__(None) # priority not available at moment
-        self.__setup_reference(_reference)
-        self.__setup_metadata( _metadata)
-        self._priority_callable = priority_callable
-        self.__setup_priority(None) # priority not available at moment
+    def __init__(self, _reference, priority=None, _type=object, 
+    strict=False):
+        # _reference: Reference object or python any object
+        # priority: None or number representing represnting priority.
+        # _type: Expected type for object.
+        
+        self._type = _type
+        self._strict = strict
+        self._type = _type
+        # Shouldnt super().__init__() be first call of __init__()?
+        # Thats because super().__init__() calls another method which
+        # is overided by this class(begining of problems).
+        super().__init__(priority) 
+        # Calling method within initializer can cause problems.
+        # This should be avoided as possible to avoid hard issues.
+        # __init__() should be for initialising data not method calls.
+        self._setup_reference(_reference)
 
 
-    def __setup_priority(self, priority):
-        # Setup priority from metadata, priority callable or reference.
-        if self._priority_callable:
-            # Sets priority from priority callable.
-            self._priority = self._priority_callable(self._metadata)
-        elif self._metadata.data_exists("priority"):
-            # Sets priority from metadata.
-            self._priority = self._metadata.get_data("priority")
-        else:
-            # Priority is not available, set priority from reference.
-            self._priority =  self._reference.get_priority()
+    def _setup_priority(self, priority):
+        # Setup priority for reference from object if 'priority' arg
+        # is not provided.
+        # This method is not meant to be overiden(take care)
+        super()._setup_priority(priority)
+        if priority == None:
+            try:
+                # object is probaly type of Priority
+                self._priority = self._reference.get_priority()
+            except AttributeError:
+                # Default priority is already set by super class.
+                # This method does not overide super class version.
+                pass
 
-    def __setup_reference(self, _reference):
+    def _setup_reference(self, _reference):
         # Creates reference object when neccessay
-        if isinstance(_reference, reference.Reference):
-            self._reference = _reference
+        # This method is not meant to be overiden(take care)
+        if self._strict and not isinstance(_reference, reference.Reference):
+                err_msg = "Reference needs to be instance of '{}' not " +\
+                    "'{}' when 'strict' is enabled"
+                err_msg = err_msg.format(
+                    reference.Reference.__name__,
+                    _reference.__class__.__name__
+                )
+                raise TypeError(err_msg)
         else:
-            self._reference = reference.Reference(_reference)
+            self._reference = reference.Reference.to_reference(_reference)
+            if not isinstance(_reference, self._type):
+                err_msg = "object should be instance of {}, not {}"
+                raise TypeError(err_msg.format(_reference, self._type))
 
-    def __setup_metadata(self, _metadata):
-        # Creates Metadata object when neccessary
-        if isinstance(_metadata, dict):
-            self._metadata = metadata.Metadata(_metadata)
+    @classmethod
+    def to_item(cls, _object):
+        # Creates item object from if not already item object
+        if isinstance(_object, Item):
+            _item = _object
         else:
-            # Its responsibility of developer to ensure metadata
-            # argument is in correct types(dict or metadata.Metadata)
-            self._metadata = _metadata
+            _item = cls(_object)
+        return _item
 
     def get_reference(self):
         # Returns underling reference object
         return self._reference
+
+    def get_type(self):
+        # Gets type of underlying reference
+        return self._reference.get_type()
+
+    def get_object(self):
+        # Gets object of underlying reference
+        return self._reference.get_object()
+
+    def copy(self):
+        # Returns copy of this object/instance
+        return self.__class__(self._reference, self._priority, self._type, 
+        self._strict)
 
 
 if __name__ == "__main__":

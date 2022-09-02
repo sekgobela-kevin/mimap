@@ -3,6 +3,8 @@
 # reference.py uses it instead of dictionary.
 # source: navaly 0.0.1 (navaly/source/utility/metadata.py)
 
+# This module is no longer used(worthless module).
+
 
 class Metadata():
     # Defines extra data to be stored on objects

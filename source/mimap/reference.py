@@ -6,53 +6,28 @@
 import collections
 
 
-class Priority():
-    # Simple class for setting priority.
-    # Classes supporting priority should implement this class.
-    def __init__(self, priority) -> None:
-        self.__setup_priority(priority)
-
-    def __setup_priority(self, priority):
-        # Setup priority priority to avoid it from being None.
-        if priority != None:
-            self._priority = priority
-        else:
-            # This is default priority when priority is None.
-            self._priority = 1
-
-    def get_priority(self):
-        # Returns priority for reference if set else returns 1
-        return self._priority 
-
-
-class Reference(Priority):
+class Reference():
     # Wraps object and associate it with priority.
-    def __init__(self, _object, priority=None, _type=object) -> None:
+    def __init__(self, _object) -> None:
         # _object: Any python object
-        # priority: None or number representing represnting priority.
-        # _type: Expected type for object.
-        super().__init__(priority)
-        if not isinstance(_object, _type):
-            err_msg = "object should be instance of {}, not {}"
-            raise TypeError(err_msg.format(_object, _type))
         self._object = _object
-        self.__setup_priority(priority)
-
-    def __setup_priority(self, priority):
-        # Setup priority for reference from object if 'priority' arg
-        # is not provided.
-        if priority == None:
-            try:
-                # object is probaly type of Priority
-                self._priority = self._object.get_priority()
-            except AttributeError:
-                # Default priority is already set by super class.
-                # This method does not overide super class version.
-                pass
 
     def get_object(self):
         # returns undelyimng object
         return self._object
+
+    def get_type(self):
+        # returns type of underlying object
+        return self._object.__class__
+
+    @classmethod
+    def to_reference(cls, _object):
+        # Creates refence object from provided object.
+        if isinstance(_object, Reference):
+            _item = _object
+        else:
+            _item = cls(_object)
+        return _item
 
     def is_callable(self):
         # Checks if underlying object is callable
