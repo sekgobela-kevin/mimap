@@ -7,19 +7,19 @@ from mimap import item
 
 from collections import defaultdict
 from queue import PriorityQueue
-from numbers import Number
 
 
 class Block(item.Priority):
     # Wraps collection of Item objects and associate them with priority.
     def __init__(self, items, priority=None, _type=object, strict=True,
-    priority_mode=None):
+    priority_mode=None, update_priorities=True):
         # items: Collection of Item objects
         # priority: Number representing priority for items.
         self._items = items
         self._strict = strict
         self._type = _type
         self._strict = strict
+        self._update_priorities = update_priorities
         # Calling methods with initializer causes problems.
         # Thats why super().__init__() is fist call to __init__().
         self._setup_priority_mode(priority_mode)
@@ -45,31 +45,31 @@ class Block(item.Priority):
             priorities = [_item.get_priority() for _item in self._items]
             # Empty priorities wont work(rather be default one)
             if priorities:
-                if self._priority_mode == "median":
+                if self._priority_mode in self._median_priority_modes:
                     # Calculates priority from median(midpoint).
                     # This is based on position other than values.
                     # It will work even if priorities are non numbers.
-                    priorities.sort(reverse=True)
+                    priorities.sort(reverse=False)
                     # Find midpoint index of priorities list
                     median_index = round((len(priorities)-1)/2)
                     # Use the index to find meadin priority.
                     _priority = priorities[median_index]
-                elif self._priority_mode in {"average", "avg", "mean"}:
+                elif self._priority_mode in self._average_priority_modes:
                     # Calculates avarage of priorities.
                     # Priorities needs to be numbers to work.
                     _priority = sum(priorities)/len(priorities)
-                elif self._priority_mode == "min":
+                elif self._priority_mode in self._min_priority_modes:
                     # Minumum of priorities is used as block priority.
                     _priority = min(priorities)
-                elif self._priority_mode == "max":
+                elif self._priority_mode in self._max_priority_modes:
                     # Maximum of priorities is used as block priority.
                     _priority = max(priorities)
                 else:
                     err_msg = "priority_mode should one of {} not '{}'"
-                    priority_modes = ("min", "max","median", "average", 
-                    "avg", "mean")
-                    err_msg = err_msg.format(priority_modes, 
-                    self._priority_mode)
+                    err_msg = err_msg.format(
+                        self._priority_modes, 
+                        self._priority_mode
+                    )
                     raise ValueError(err_msg)
                 self._priority = _priority
         else:
@@ -109,10 +109,26 @@ class Block(item.Priority):
             new_items.append(new_item)
         self._items = self._get_items_with_new_priorities(new_items)
 
+    def setup_priority_modes(self):
+        # Setup possible values of priority mode
+        self._average_priority_modes = {"average", "avg", "mean"}
+        self._median_priority_modes = {"median"}
+        self._min_priority_modes = {"min"}
+        self._max_priority_modes = {"max"}
+        self._priority_modes = {
+            *self._average_priority_modes,
+            *self._median_priority_modes,
+            *self._min_priority_modes,
+            *self._max_priority_modes
+        }
+
     def _setup_priority_mode(self, priority_mode):
         # This method is not meant to be overiden(take care)
+        self.setup_priority_modes()
         if priority_mode == None:
-            self._priority_mode = "median"
+            # Median is by default used to calculate block priority.
+            # Median is better as it works with non numbers.
+            self._priority_mode = list(self._median_priority_modes)[0]
         else:
             self._priority_mode = priority_mode
 
@@ -122,13 +138,14 @@ class Block(item.Priority):
         for _item in items:
             # Copies item object(avoid modifying original object)
             new_item = _item.copy()
-            if isinstance(self._priority, Number):
-                # Also modifies priority of copied item.
-                # New priority is between item priority and block priority.
-                # Average is the best as it satisfies both block and item 
-                # priority equally.
-                new_priority = (self._priority + new_item.get_priority())/2
-                new_item.set_priority(new_priority)
+            if self._update_priorities:
+                new_item_priority = new_item.get_priority()
+                if self._priority_mode in self._average_priority_modes:
+                    # New priority is between item and block priorities.
+                    # Average is the best as it satisfies both block and item 
+                    # priorities equally.
+                    new_priority = (self._priority + new_item_priority)/2
+                    new_item.set_priority(new_priority)
             new_items.append(new_item)
         return new_items
 
@@ -139,13 +156,21 @@ class Block(item.Priority):
 
 
     def get_items(self):
-        # Returns items stored in block object.
-        # When 'priority_sort' is True items will be sorted by priorities.
+        # Returns items stored in block object.   
         return self._items
 
-    def get_objects(self, priority_sort=True):
-        # Returns original underlying objects from items
+    def get_sorted_items(self):
+        # Gets items sorted by their priorities
+        return self.sort_items_by_priority(self._items)
+
+    def get_objects(self, priority_sort=False):
+        # Gets items underlying objects
         return self.extract_objects_from_items(self._items)
+
+    def get_sorted_objects(self):
+        # Gets items underlying objects sorted by priority
+        sorted_items = self.get_sorted_items()
+        return self.extract_objects_from_items(sorted_items)
 
     def get_priorities(self):
         # Gets priorities of block item objects
@@ -206,6 +231,17 @@ class Block(item.Priority):
             return isinstance(_item.get_object(), _type)
         return self.filter_items(func)    
 
+    def find_top_items(self, limit=3):
+        # Finds top item objects based on their priority.
+        sorted_items = self.sort_items_by_priority(self._items)
+        return sorted_items[:limit]
+
+    def find_bottom_items(self, limit=3):
+        # Finds bottom item objects based on their priority.
+        sorted_items = self.sort_items_by_priority(self._items)
+        return sorted_items[-limit:]
+
+
     def find_objects_by_priority(self, priority):
         # Finds objects within item maching priority.
         items = self.find_items_by_priority(priority)
@@ -217,7 +253,7 @@ class Block(item.Priority):
         # Priority will be used as tuple key and object as value.
         # object is the object under reference object of items
         results = []
-        for _item in self._items:
+        for _item in self.get_sorted_items():
             results.append((_item.get_priority(), _item.get_object()))
         return tuple(results)
 
@@ -254,8 +290,7 @@ class Block(item.Priority):
         return priority_queue
     
     def __iter__(self):
-        for _priority, _object in self._items():
-            yield _priority, _object
+        return iter(self.get_sorted_items())
 
     def __len__(self):
         return len(self._items)
@@ -323,3 +358,5 @@ if __name__ == "__main__":
     print(deep_object.extract_objects_from_items(
         deep_object.find_items_by_priority_range()
             ))
+    print("block priority: ", block_object.get_priority())
+    print("deep_block priority: ", deep_object.get_priority())
