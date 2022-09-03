@@ -6,7 +6,8 @@
 from mimap import item
 
 from collections import defaultdict
-import numbers
+from queue import PriorityQueue
+from numbers import Number
 
 
 class Block(item.Priority):
@@ -75,10 +76,10 @@ class Block(item.Priority):
             self._priority = priority
 
     def _to_items(self, _items_like):
-        # Returns item object from iterator of objects.
+        # Returns item objects from iterator of objects.
         # Item objects will be returned unchanged.
-        # Non item objects will be result in item objects.
-        return  [item.Item.to_item(_item) for _item in self.get_items()]
+        # Non item objects will  result in item objects.
+        return  [item.Item.to_item(_item) for _item in _items_like]
 
     def _setup_items(self, items):
         # Setup items to ensure they are in correct type.
@@ -115,17 +116,13 @@ class Block(item.Priority):
         else:
             self._priority_mode = priority_mode
 
-    def _priority_sort_items(self, items):
-        # Returns items sorted by their priority
-        return sorted(items, key=lambda _item: _item.get_priority())
-
     def _get_items_with_new_priorities(self, items):
         # Returns copy of items with updated priorities.
         new_items = []
         for _item in items:
             # Copies item object(avoid modifying original object)
             new_item = _item.copy()
-            if isinstance(self._priority, numbers.Number):
+            if isinstance(self._priority, Number):
                 # Also modifies priority of copied item.
                 # New priority is between item priority and block priority.
                 # Average is the best as it satisfies both block and item 
@@ -141,35 +138,86 @@ class Block(item.Priority):
         self._items = self._get_items_with_new_priorities(self._items)     
 
 
-    def get_items(self, priority_sort=True):
+    def get_items(self):
         # Returns items stored in block object.
         # When 'priority_sort' is True items will be sorted by priorities.
-        if priority_sort:
-            return self._priority_sort_items(self._items)
-        else:
-            return self._items
+        return self._items
+
+    def get_objects(self, priority_sort=True):
+        # Returns original underlying objects from items
+        return self.extract_objects_from_items(self._items)
 
     def get_priorities(self):
         # Gets priorities of block item objects
-        return [_item.get_priority() for _item in self.get_items()]
+        return [_item.get_priority() for _item in self._items]
 
-    def get_references(self, priority_sort=True):
-        # Returns reference underlying item objects
-        items = self.get_items(priority_sort)
-        return [item.get_reference() for item in items]
+    @classmethod
+    def extract_objects_from_items(cls, items):
+        # Gets underlying object from item object
+        return [_item.get_object() for _item in items]
 
-    def get_objects(self, priority_sort=True):
-        # Returns original underlying objects items references.
-        references = self.get_references(priority_sort)
-        return [_reference.get_object() for _reference in references]
+    @classmethod
+    def sort_items_by_priority(cls, items):
+        # Returns items sorted by their priorities
+        return sorted(items, key=lambda _item: _item.get_priority())
+
+    def filter_items(self, key=None, limit=None):
+        # Filters item objects filtered by key function
+        filtered_items = list(filter(key, self._items))
+        if limit != None:
+            filtered_items = filtered_items[:limit]
+        return filtered_items
+
+    def find_items_by_priority(self, priority):
+        # Finds item objects matching priority.
+        def func(_item):
+            return _item.get_priority() == priority
+        return self.filter_items(func)
+
+    def find_items_by_priorities(self, priorities):
+        # Finds item objects matching any of priorities.
+        def func(_item):
+            return _item.get_priority() in priorities
+        return self.filter_items(func)
+
+    def find_items_by_priority_range(self, start=None, end=None):
+        # Finds item objects matching any of priorities.
+        # Both 'start' and 'end' priorities are included.
+        # This method should work for non numbers priorities.
+        if start != None and end != None:
+            if start > end:
+                err_msg = "Start priority '{}' cant be greater than " +\
+                    "end priority '{}'"
+                err_msg = err_msg.format(start, end)
+                raise ValueError(err_msg)
+        def func(_item):
+            priority = _item.get_priority()
+            if start != None and priority < start:
+                return False
+            if end != None and priority > end:
+                return False
+            return True
+        return self.filter_items(func)
+
+    def find_items_by_type(self, _type):
+        # Finds item objects of specific type.
+        # Type is defined as type of object underlying item.
+        def func(_item):
+            return isinstance(_item.get_object(), _type)
+        return self.filter_items(func)    
+
+    def find_objects_by_priority(self, priority):
+        # Finds objects within item maching priority.
+        items = self.find_items_by_priority(priority)
+        return self.extract_objects_from_items(items)
+        
 
     def to_tuple(self):
         # Returns tuple form of block with priorities and objects.
         # Priority will be used as tuple key and object as value.
-        # object is the object under reference object of item.
-        _items = self.get_items()
+        # object is the object under reference object of items
         results = []
-        for _item in _items:
+        for _item in self._items:
             results.append((_item.get_priority(), _item.get_object()))
         return tuple(results)
 
@@ -179,13 +227,34 @@ class Block(item.Priority):
         return dict(self.to_tuple())
 
     def to_multi_dict(self):
+        # Returns multi dict from items priorities and underlying objects.
+        # Key is priority and values are underlying objects.
         result_dict = defaultdict(set)
         for _priority, _object in self.to_tuple():
             result_dict[_priority].add(_object)
         return result_dict
+
+    def to_priority_queue(self, maxsize=None):
+        # Returns priority queue version of block object.
+        # Priority is priority of item object.
+        # Value of priority is object underlying item object.
+        output_tuple = self.to_tuple()
+        if maxsize != None:
+            # Slices tuple by maxsize and set queue maxsize.
+            output_tuple = output_tuple[:maxsize]
+            priority_queue = PriorityQueue(maxsize)
+        else:
+            # Its better to leave output tuple unchanged and maxsize
+            # of queue not set.
+            priority_queue = PriorityQueue()
+        # Put items(underlying object) into queue with its priority.
+        # No way the queue can block while putting items.
+        for priority, _object in output_tuple:
+            priority_queue.put((priority, _object))
+        return priority_queue
     
     def __iter__(self):
-        for _priority, _object in self.get_items():
+        for _priority, _object in self._items():
             yield _priority, _object
 
     def __len__(self):
@@ -205,7 +274,7 @@ class DeepBlock(Block):
         # Take care when extensing it on sub classes.
         deep_items = []
         # Gets item objects of block(not sorted by priority)
-        items = _block.get_items(False)
+        items = _block.get_items()
         for _item in items:
             # Gets reference from item
             _reference = _item.get_reference() 
@@ -227,7 +296,7 @@ class DeepBlock(Block):
         # Setup deep items overiding existing item objects.
         # Ensures all items are really item objects.
         # _extract_deep_items() expectes item objects.
-        self._items = self._to_items(self.get_items())
+        self._items = self._to_items(self._items)
         _items = self._extract_deep_items(self)
         # Now asks super class to setup items as usual.
         # Items priorities will be updated as expected.
@@ -237,14 +306,20 @@ class DeepBlock(Block):
 if __name__ == "__main__":
     from mimap import reference
 
-    item_object = item.Item(reference.Reference("Ruth"))
-    item_object2 = item.Item("Marry")
-    item_object3 = item.Item("John", 400)
+    item_object = item.Item(reference.Reference("Ruth"), "b")
+    item_object2 = item.Item("Marry", "a")
+    item_object3 = item.Item("John", "c")
 
     items = [item_object, item_object2, item_object3]
 
     block_object = Block(items)
-    deep_object = DeepBlock([Block(items), Block([item.Item("Lord")])], 30, priority_mode="avg")
+    deep_object = DeepBlock([Block(items), Block([item.Item("Lord", "aa")], "z")])
 
-    print(block_object.to_tuple())
-    print(deep_object.to_tuple())
+    queue_object = deep_object.to_priority_queue()
+    print(queue_object.get())
+    print(queue_object.get())
+    print(queue_object.get())
+    print(queue_object.get())
+    print(deep_object.extract_objects_from_items(
+        deep_object.find_items_by_priority_range()
+            ))
