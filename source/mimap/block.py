@@ -25,16 +25,31 @@ class Block(item.Priority):
     as it can be used on non numbers priority unlike mean/average. 
     
     Setting `update_priorities` to False would result in items priorities
-    not influenced by block priority. Setting priority for block would 
-    result in items not influencing priority of block.
+    not influenced by block priority and not copied. Setting priority for 
+    block would result in block not infuenced by items priorities.
     
     When `strict` is True, block instance will not allow item containing
     another block. This is by default set to True to avoid confusion
     but can be set to True to allow nested block instances.'''
     def __init__(self, items, priority=None, _type=object, strict=True,
     priority_mode=None, update_priorities=True):
-        # items: Collection of Item objects
-        # priority: Number representing priority for items.
+        '''
+        items: Iterator
+            Collection of Item objects
+        priority: Any
+            Any object can sorted or support comparison operators.   
+            It needs to be compatible with items priorities unless 
+            `update_priorities` is False.
+        _type: Type
+            Type of items this block expectes, default: object
+        strict: Bool
+            Prevents block from containing items containing other blocks.
+        priority_mode: Str
+            Mode for calculating priority for block and items, default:
+            'median'.
+        update_priorities: Bool
+            Enables and disables updating of block and items priorities.
+        '''
         self._items = items
         self._strict = strict
         self._type = _type
@@ -57,7 +72,7 @@ class Block(item.Priority):
         # Setup priority from average of items priorities.
         # Default priority is already set by super class.
         # This method is not meant to be overiden(take care)
-        if priority == None:
+        if self._update_priorities and priority == None:
             # Priority was suppossed to be calculated from average.
             # But priority can be non number(that makes it impossible).
             # Median is used here to calculate priority for block.
@@ -154,18 +169,19 @@ class Block(item.Priority):
 
     def _get_items_with_new_priorities(self, items):
         # Returns copy of items with updated priorities.
+        if not self._update_priorities:
+            return self._items
         new_items = []
         for _item in items:
             # Copies item object(avoid modifying original object)
             new_item = _item.copy()
-            if self._update_priorities:
-                new_item_priority = new_item.get_priority()
-                if self._priority_mode in self._average_priority_modes:
-                    # New priority is between item and block priorities.
-                    # Average is the best as it satisfies both block and item 
-                    # priorities equally.
-                    new_priority = (self._priority + new_item_priority)/2
-                    new_item.set_priority(new_priority)
+            new_item_priority = new_item.get_priority()
+            if self._priority_mode in self._average_priority_modes:
+                # New priority is between item and block priorities.
+                # Average is the best as it satisfies both block and item 
+                # priorities equally.
+                new_priority = (self._priority + new_item_priority)/2
+                new_item.set_priority(new_priority)
             new_items.append(new_item)
         return new_items
 
@@ -359,9 +375,6 @@ class DeepBlock(Block):
     
     Priorities for block and items will be updated accordinly as similar
     to its parent class.'''
-    def __init__(self, items, priority=None, _type=object, strict=False,
-    priority_mode=None):
-        super().__init__(items, priority, _type, strict)
     
     def _extract_deep_items(cls, _block):
         # Extracts low level(deep) items from block object.

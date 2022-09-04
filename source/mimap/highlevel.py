@@ -13,7 +13,9 @@ __all__ = [
     "items_to_map_tuple",
     "items_to_dict",
 
+    "flatten_items",
     "extract_objects",
+    "sort_items_by_priority",
 
     "find_items_by_priorities",
     "find_item_by_priorities",
@@ -99,11 +101,38 @@ def items_to_dict(items, flatten=False):
     return block_object.to_dict()
 
 
+
+def flatten_items(items):
+    '''Flattens items by exposing items within nested block objects.
+    
+    This function removes any block object within items while retaining
+    items. The number of resulting items may be larger than items 
+    provided on argumnets. This is because this function exposes items
+    that were nested deep within block objects.
+    
+    This function does not affect nested items but items containing
+    block. Nested items is something out of scope of this library but block
+    and items can be nested.
+
+    Block can contain items containing other blocks and items can contain
+    block objects. But items containg other items is something that wasnt
+    planned for this library.
+    '''
+    block_object = create_deep_block(items, update_priorities=False)
+    return block_object.get_items()
+
+def sort_items_by_priority(items):
+    '''Sorts items based on their priorities'''
+    block_object = create_block(items, update_priorities=False,
+    strict=False)
+    return block_object.get_sorted_items()
+
 def extract_objects(items, flatten=False):
     '''Extracts objects within items'''
     #return [_item.get_object() for _item in items]
     block_object = create_mapping(items, flatten=flatten, strict=False)
     return block_object.get_objects()
+
 
 
 def find_items_by_priorities(items, priorities, flatten=False):

@@ -24,22 +24,42 @@ class Priority():
             self._priority = 1
 
     def get_priority(self):
+        '''Gets priority of this object'''
         return self._priority
 
     def set_priority(self, priority):
+        '''Gets priority priority for this object'''
         self._priority = priority
 
 
 
 class Item(Priority):
-    # Links reference object to metadata and priority.
+    '''Associates reference object with priority.
+    
+    Instances of this class store a reference containing object 
+    and associate it with priority. If non non reference object
+    is passed as reference, reference object will be created form it.
+    
+    Priority defines priority of reference over other references. Its 
+    most likely to be a number but can be any python object. The smaller
+    priority value the higher reference will have priority over other 
+    references.
+    
+    Remember that this class internally creates reference object if 
+    reference argument is not Reference object.'''
     # Item has precidence over reference own priority.
     def __init__(self, _reference, priority=None, _type=object, 
     strict=False):
-        # _reference: Reference object or python any object
-        # priority: None or number representing represnting priority.
-        # _type: Expected type for object.
-        
+        '''
+        _reference: Reference
+            Instance of Reference type or any python object.
+        priority: Any
+            Any object can sorted or support comparison operators.   
+        _type: Type
+            Type of reference item expectes, default: object.
+        strict: Bool
+            Forces `_reference` argumnet to be strictly Reference instance.
+        '''
         self._type = _type
         self._strict = strict
         self._type = _type
@@ -94,19 +114,19 @@ class Item(Priority):
         return _item
 
     def get_reference(self):
-        # Returns underling reference object
+        '''Gets underling reference object'''
         return self._reference
 
     def get_type(self):
-        # Gets type of underlying reference
+        '''Gets type of underlying reference'''
         return self._reference.get_type()
 
     def get_object(self):
-        # Gets object of underlying reference
+        '''Gets object of underlying reference'''
         return self._reference.get_object()
 
     def copy(self):
-        # Returns copy of this object/instance
+        '''Creates a copy of item'''
         return self.__class__(self._reference, self._priority, self._type, 
         self._strict)
 
