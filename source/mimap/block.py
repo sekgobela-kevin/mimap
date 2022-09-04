@@ -1,8 +1,3 @@
-# Defines classes for represensting collection of items.
-# The items can be priority_sorted and sorted based on their priorities.
-# The classes also implement priority methods just as references and items.
-# That allows the classes to be used for creating references and items.
-
 from mimap import item
 
 from collections import defaultdict
@@ -61,9 +56,14 @@ class Block(item.Priority):
         # super().__init__() setup priority.
         # priority_mode need to be setup before setting priority.
         # This will cause problems when methods are overiden.
+        # Priority for this block may be changed.
         super().__init__(priority)
         # Setup items after priority have been set from existing items.
-        self._setup_items(items)
+        # The method may modify priorities for items.
+        # Priority is passed as argument since priority argument may
+        # have been modified.
+        # This are results of calling methods within initialiser.
+        self._setup_items(items, priority)
         # Calling method within initializer is hell.
         # The instance is not yet fully created.
         # Warning has been included on the methods called by __init__().
@@ -107,6 +107,11 @@ class Block(item.Priority):
                     )
                     raise ValueError(err_msg)
                 self._priority = _priority
+            else:
+                # No way priority can be calculated without items.
+                # Priority may need to be set explicity in initializer.
+                err_msg = "There are no items to calculate block priority"
+                raise ValueError(err_msg)
         else:
             self._priority = priority
 
@@ -116,7 +121,7 @@ class Block(item.Priority):
         # Non item objects will  result in item objects.
         return  [item.Item.to_item(_item) for _item in _items_like]
 
-    def _setup_items(self, items):
+    def _setup_items(self, items, priority):
         # Setup items to ensure they are in correct type.
         # Item objects will be created when neccessary.
         # This could make find bugs hard but it simplifies things.
@@ -124,9 +129,8 @@ class Block(item.Priority):
         new_items = []
         for _item in items:
             new_item = item.Item.to_item(_item)
-            # Gets underlying object of item object
-            _reference = new_item.get_reference()
-            _object = _reference.get_object()
+            # Gets object underlying item.
+            _object = new_item.get_object()
             # Check if strict is respected(Block objects not allowed).
             # Exception is raised if not respected.
             if self._strict and isinstance(_object, Block):
@@ -142,10 +146,16 @@ class Block(item.Priority):
                 raise TypeError(err_msg)
             # Appends new item to items list
             new_items.append(new_item)
-        self._items = self._get_items_with_new_priorities(new_items)
+        if self._update_priorities and priority != None:
+            # Copies items to avoid modifying original ones.
+            copied_items = [_item.copy() for _item in new_items]
+            self._items = self._update_items_priorities(copied_items,
+            priority)
+        else:
+            self._items = new_items
 
-    def setup_priority_modes(self):
-        # Setup possible values of priority mode
+    def _setup_priority_modes(self):
+        # Setup possible values of priority mode.
         self._average_priority_modes = {"average", "avg", "mean"}
         self._median_priority_modes = {"median"}
         self._min_priority_modes = {"min"}
@@ -159,7 +169,7 @@ class Block(item.Priority):
 
     def _setup_priority_mode(self, priority_mode):
         # This method is not meant to be overiden(take care)
-        self.setup_priority_modes()
+        self._setup_priority_modes()
         if priority_mode == None:
             # Median is by default used to calculate block priority.
             # Median is better as it works with non numbers.
@@ -167,23 +177,38 @@ class Block(item.Priority):
         else:
             self._priority_mode = priority_mode
 
-    def _get_items_with_new_priorities(self, items):
-        # Returns copy of items with updated priorities.
-        if not self._update_priorities:
-            return self._items
-        new_items = []
+    def _update_items_priorities(self, items, block_priority):
+        # Updates items priorities with ones calculated from block priority.
+        if block_priority == None:
+            # No updating items priorities when block priority is not
+            # provided(being None).
+            return items
+        updated_items = []
         for _item in items:
             # Copies item object(avoid modifying original object)
-            new_item = _item.copy()
-            new_item_priority = new_item.get_priority()
+            new_item_priority =  _item.get_priority()
             if self._priority_mode in self._average_priority_modes:
                 # New priority is between item and block priorities.
                 # Average is the best as it satisfies both block and item 
                 # priorities equally.
                 new_priority = (self._priority + new_item_priority)/2
-                new_item.set_priority(new_priority)
-            new_items.append(new_item)
-        return new_items
+                _item.set_priority(new_priority)
+            updated_items.append( _item)
+        return updated_items
+
+    def _should_update_block_priority(self):
+        # Checks if block priority should be updated.
+        # Method not reliabe as priority can be modified on initialiser.
+        return self._update_priorities and self._priority == None
+
+    def _should_update_items_priorities(self):
+        # Checks if block priority should be updated.
+        # Method not reliabe as priority can be modified on initialiser.
+        return self._update_priorities and self._priority != None
+
+    def copy_items(self):
+        # Copies current items of block
+        return [_item.copy() for _item in self._items]
 
     def set_priority(self, priority):
         '''Sets priority for block and update items priorities'''
@@ -401,7 +426,7 @@ class DeepBlock(Block):
                 deep_items.append(_item)
         return deep_items
 
-    def _setup_items(self, items):
+    def _setup_items(self, items, priority):
         # Setup deep items overiding existing item objects.
         # Ensures all items are really item objects.
         # _extract_deep_items() expectes item objects.
@@ -409,7 +434,7 @@ class DeepBlock(Block):
         _items = self._extract_deep_items(self)
         # Now asks super class to setup items as usual.
         # Items priorities will be updated as expected.
-        super()._setup_items(_items)
+        super()._setup_items(_items, priority)
 
 
 if __name__ == "__main__":
