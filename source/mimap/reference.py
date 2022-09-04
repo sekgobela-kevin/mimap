@@ -1,8 +1,3 @@
-# Defines classes related to reference.
-# Reference class wraps any object along with its priority.
-# It also contain methods for knowing more about underlying object.
-# Priority of reference helps in ranking the reference.
-
 import collections
 
 

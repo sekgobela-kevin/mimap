@@ -1,9 +1,3 @@
-# Defines Item class which wraps reference object along with its metadata.
-# Item class also implements Priority so that it instancescan be used in 
-# place of reference object or vice-verse.
-# Reference can be used without Item object as it has its own priority.
-# Item gives oportunity to overide that priority and metadata support.
-
 from mimap import reference
 
 
