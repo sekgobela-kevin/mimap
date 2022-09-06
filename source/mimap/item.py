@@ -10,12 +10,8 @@ class Priority():
         self._setup_priority(priority)
 
     def _setup_priority(self, priority):
-        # Setup priority priority to avoid it from being None.
-        if priority != None:
-            self._priority = priority
-        else:
-            # This is default priority when priority is None.
-            self._priority = 1
+        # Setup priority priority value.
+        self._priority = priority
 
     def get_priority(self):
         '''Gets priority of this object'''
@@ -57,29 +53,35 @@ class Item(Priority):
         self._type = _type
         self._strict = strict
         self._type = _type
-        # Shouldnt super().__init__() be first call of __init__()?
-        # Thats because super().__init__() calls another method which
-        # is overided by this class(begining of problems).
-        super().__init__(priority) 
         # Calling method within initializer can cause problems.
         # This should be avoided as possible to avoid hard issues.
         # __init__() should be for initialising data not method calls.
         self._setup_reference(_reference)
+        # Shouldnt super().__init__() be first call of __init__()?
+        # Thats because super().__init__() calls another method which
+        # is overided by this class(begining of problems).
+        super().__init__(priority) 
 
 
     def _setup_priority(self, priority):
-        # Setup priority for reference from object if 'priority' arg
-        # is not provided.
+        # Setup priority priority for item.
         # This method is not meant to be overiden(take care)
         super()._setup_priority(priority)
         if priority == None:
-            try:
-                # object is probaly type of Priority
-                self._priority = self._reference.get_priority()
-            except AttributeError:
-                # Default priority is already set by super class.
-                # This method does not overide super class version.
-                pass
+            # Attempts to get priority from reference.
+            _object = self.get_object()
+            if hasattr(_object, "get_priority"):
+                self._priority = _object.get_priority()
+            elif hasattr(_object, "priority"):
+                self._priority = _object.priority
+            else:
+                err_msg = "Cannot get priority from object of type " +\
+                    "'{}', please provide priority or define " +\
+                    "'get_priority()' or 'priority' attributes."
+                type_name = _object.__class__.__name__
+                raise ValueError(err_msg.format(type_name))
+        else:
+            self._priority = priority
 
     def _setup_reference(self, _reference):
         # Creates reference object when neccessay

@@ -33,7 +33,7 @@ __all__ = [
     "find_last_item"
 ]
 
-def create_item(_object, priority, **kwargs):
+def create_item(_object, priority=None, **kwargs):
     '''Creates item object containing object and its priority.
 
     _reference: Reference

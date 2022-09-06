@@ -72,7 +72,7 @@ class Block(item.Priority):
         # Setup priority from average of items priorities.
         # Default priority is already set by super class.
         # This method is not meant to be overiden(take care)
-        if self._update_priorities and priority == None:
+        if priority == None:
             # Priority was suppossed to be calculated from average.
             # But priority can be non number(that makes it impossible).
             # Median is used here to calculate priority for block.
