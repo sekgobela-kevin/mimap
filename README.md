@@ -1,8 +1,7 @@
 # mimap
 Mimap is simple python library for associating ordinary python object
-with priority. Priority for object helps when sorting and retrieving the
-object from other objects. Priority act as key which defines how its object
-can be accessed.
+with priority. Priority for object helps when sorting and finding the
+object. Priority act as key which defines how its object can be accessed.
 
 Mimap allows to get items or sort them based on their their priorities 
 instead of the object directly. An object with its priority forms **item**
@@ -49,7 +48,7 @@ marry_item.get_prority() # 30
 
 After creating items you may consider creating block object to hold the 
 items. Block makes it easy to work with multiple items such as sorting
-or retrieving them based on their priorities.
+or accessing them based on their priorities.
 
 ```python
 # List of items to use with block
@@ -115,7 +114,7 @@ items = [marry_item, john_item, ricky_item]
 
 # Priority for block is not provided and priority_mode set to 'mean'.
 # Default priority mode is 'median'.
-# Other priority modes can be ('min', 'max', 'same')
+# Other priority modes can be ('min', 'max')
 items_block = mimap.create_block(items, priority_mode="mean")
 # This is priorities for each item of block
 items_block.get_priorities() # [30, 10, 40]
