@@ -1,50 +1,23 @@
 from mimap import reference
+from mimap import priority
 
 
-class Priority():
-    # Simple class for setting priority.
-    # Classes supporting priority should implement this class.
-    def __init__(self, priority) -> None:
-        # Calling method within initializer can cause problems.
-        # Care should be taken when extending method called by __init__().
-        self._setup_priority(priority)
+class BaseItem():
+    '''Associates reference(obiect) with certain value'''
+    # _value_attrs = (object attr, object method)
+    # Used for getting value from object.
+    _value_attrs = ("value", "get_value") 
+    _default_value_attrs = ("value", "get_value") 
+    # Value class/type to use.
+    _value_type = priority.Value
 
-    def _setup_priority(self, priority):
-        # Setup priority priority value.
-        self._priority = priority
-
-    def get_priority(self):
-        '''Gets priority of this object'''
-        return self._priority
-
-    def set_priority(self, priority):
-        '''Gets priority priority for this object'''
-        self._priority = priority
-
-
-
-class Item(Priority):
-    '''Associates reference object with priority.
-    
-    Instances of this class store a reference containing object 
-    and associate it with priority. If non non reference object
-    is passed as reference, reference object will be created form it.
-    
-    Priority defines priority of reference over other references. Its 
-    most likely to be a number but can be any python object. The smaller
-    priority value the higher reference will have priority over other 
-    references.
-    
-    Remember that this class internally creates reference object if 
-    reference argument is not Reference object.'''
-    # Item has precidence over reference own priority.
-    def __init__(self, _reference, priority=None, _type=object, 
-    strict=False):
+    def __init__(self, _reference, value=_value_type.get_default_value(), 
+    _type=object,  strict=False):
         '''
         _reference: Reference
             Instance of Reference type or any python object.
-        priority: Any
-            Any object can sorted or support comparison operators.   
+        Value: Any
+            Any object to be associated with item.  
         _type: Type
             Type of reference item expectes, default: object.
         strict: Bool
@@ -60,28 +33,46 @@ class Item(Priority):
         # Shouldnt super().__init__() be first call of __init__()?
         # Thats because super().__init__() calls another method which
         # is overided by this class(begining of problems).
-        super().__init__(priority) 
+        self._setup_value(value)
 
+    @classmethod
+    def get_value_attr(cls):
+        return cls._value_attrs[0]
 
-    def _setup_priority(self, priority):
-        # Setup priority priority for item.
+    @classmethod
+    def get_value_method(cls):
+        return cls._value_attrs[1]
+
+    @classmethod
+    def get_default_value(cls):
+        return cls._value_type.get_default_value()
+
+    def _setup_value(self, value):
+        # Setup value for item.
         # This method is not meant to be overiden(take care)
-        super()._setup_priority(priority)
-        if priority == None:
-            # Attempts to get priority from reference.
+        if value == self.get_default_value():
+            # Sets up variables to be used to hget value
             _object = self.get_object()
-            if hasattr(_object, "get_priority"):
-                self._priority = _object.get_priority()
-            elif hasattr(_object, "priority"):
-                self._priority = _object.priority
+            value_attr = self.get_value_attr()
+            value_method = self.get_value_method()
+            # Attempt to get value from object.
+            if hasattr(_object, value_attr):
+                self._priority = getattr(_object, value_attr)
+            elif hasattr(_object, value_method):
+                self._priority = getattr(_object, value_method)()
             else:
-                err_msg = "Cannot get priority from object of type " +\
-                    "'{}', please provide priority or define " +\
-                    "'get_priority()' or 'priority' attributes."
+                err_msg = "Cannot get {0} from object of type " +\
+                    "'{1}', please provide {0} or define " +\
+                    "'{2}()' or '{3}' attributes."
+                # Set string format variables
                 type_name = _object.__class__.__name__
-                raise ValueError(err_msg.format(type_name))
+                value_name = self._value_type.get_name()
+                # Format string with those variables.
+                err_msg = err_msg.format(value_name, type_name, value_method, 
+                value_attr)
+                raise AttributeError(err_msg)
         else:
-            self._priority = priority
+            self._value = self._value_type(value)
 
     def _setup_reference(self, _reference):
         # Creates reference object when neccessay
@@ -127,7 +118,48 @@ class Item(Priority):
         self._strict)
 
 
+class Item(BaseItem):
+    '''Associates reference object with priority.
+    
+    Instances of this class store a reference containing object 
+    and associate it with priority. If non non reference object
+    is passed as reference, reference object will be created form it.
+    
+    Priority defines priority of reference over other references. Its 
+    most likely to be a number but can be any python object. The smaller
+    priority value the higher reference will have priority over other 
+    references.
+    
+    Remember that this class internally creates reference object if 
+    reference argument is not Reference object.'''
+    _value_attrs = ("priotity", "get_priority") 
+    _value_type = priority.Priority
+    
+    def __init__(self, _reference, priority=None, *args, **kwargs):
+        '''
+        _reference: Reference
+            Instance of Reference type or any python object.
+        priority: Any
+            Any object can sorted or support comparison operators.   
+        _type: Type
+            Type of reference item expectes, default: object.
+        strict: Bool
+            Forces `_reference` argumnet to be strictly Reference instance.
+        '''
+        super().__init__(_reference, priority, *args, **kwargs) 
+
+    def get_priority(self):
+        '''Gets priority of this object'''
+        return self._value.get_value()
+
+    def set_priority(self, priority):
+        '''Gets priority priority for this object'''
+        self._value.set_value(priority)
+
+
 if __name__ == "__main__":
 
-    item = Item(10)
+    item = Item(10, 34)
+    item2 = Item(item)
+    print(item.get_object())
     print(item.get_priority())

@@ -7,8 +7,10 @@ class Reference():
         # _object: Any python object
         self._object = _object
 
+    def set_object(self, _object):
+        self._object = _object
+
     def get_object(self):
-        # returns undelyimng object
         return self._object
 
     def get_type(self):
