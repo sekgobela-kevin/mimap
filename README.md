@@ -40,10 +40,10 @@ john_item = mimap.create_item("John", 10)
 ricky_item = mimap.create_item("Ricky", 40)
 
 marry_item.get_object() # 'Marry'
-marry_item.get_prority() # 30
+marry_item.get_priority() # 30
 
 #marry_item.set_priority(20)
-#marry_item.get_prority() # 20
+#marry_item.get_priority() # 20
 ```
 
 After creating items you may consider creating block object to hold the 
@@ -64,8 +64,8 @@ items_block.get_sorted_objects() # ['John', 'Marry', 'Ricky']
 item = items_block.get_items_by_priority(30)
 item = items_block.get_items_by_priority_range(20,100)
 
-# Gets top and last items based on priority
-item = items_block.get_top_item()
+# Gets first and last items based on priority
+item = items_block.get_first_item()
 item = items_block.get_last_item()
 ```
 > Block object contain even more methods.
@@ -165,7 +165,7 @@ Most of block methods are available as functions ready to be used on items
 without creating block object. 
 ```python
 >>> items = [marry_item, john_item, ricky_item]
->>> mimap.items_block.items_to_tuple(items) 
+>>> mimap.items_to_tuple(items) 
 ((10, 'John'), (30, 'Marry'), (40, 'Ricky'))
 >>> priority_queue = mimap.items_to_priority_queue(items)
 >>> priority_queue.get()
