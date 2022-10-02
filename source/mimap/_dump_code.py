@@ -1,63 +1,51 @@
-from mimap import item
+from queue import PriorityQueue
 from mimap.priority import Priority
 
-from collections import defaultdict
-from queue import PriorityQueue
+import pemap
 
 
-class BaseBlock():
-    '''Base class for block block objects.
+class Item(pemap.Item):
+    '''Associates reference object with priority.
     
-    Intances of this class wont modify or perform any operation on
-    items as compared to Block class. It comes handy for implementing
-    block class for creating block objects.'''
-    def __init__(self, items, _type=object) -> None:
-        self._items = items
-        self._type = _type
-
-    def _to_items(self, _items_like):
-        # Returns item objects from iterator of objects.
-        # Item objects will be returned unchanged.
-        # Non item objects will  result in item objects.
-        return  [item.Item.to_item(_item) for _item in _items_like]
-
-    def copy_items(self):
-        # Copies current items of block
-        return [self._item.copy() for _item in self._items]
-
-    def get_items(self):
-        # Returns items stored in block object
-        return self._items
+    Instances of this class store a reference containing object 
+    and associate it with priority. If non non reference object
+    is passed as reference, reference object will be created form it.
     
-    def get_objects(self, priority_sort=False):
-        '''Gets items underlying objects'''
-        return self.extract_objects_from_items(self._items)
+    Priority defines priority of reference over other references. Its 
+    most likely to be a number but can be any python object. The smaller
+    priority value the higher reference will have priority over other 
+    references.
+    
+    Remember that this class internally creates reference object if 
+    reference argument is not Reference object.'''
+    _value_attrs = ("priotity", "get_priority") 
+    _value_type = Priority
+    
+    def __init__(self, _reference, priority=None, *args, **kwargs):
+        '''
+        _reference: Reference
+            Instance of Reference type or any python object.
+        priority: Any
+            Any object can sorted or support comparison operators.   
+        _type: Type
+            Type of reference item expectes, default: object.
+        strict: Bool
+            Forces `_reference` argumnet to be strictly Reference instance.
+        '''
+        super().__init__(_reference, priority, *args, **kwargs) 
 
-    @classmethod
-    def extract_objects_from_items(cls, items):
-        '''Gets underlying object from item object'''
-        return [_item.get_object() for _item in items]
+    def get_priority(self):
+        '''Gets priority of this object'''
+        return self._value.get_value()
 
-    @classmethod
-    def sort_items_by_priority(cls, items):
-        '''Returns items sorted by their priorities'''
-        return sorted(items, key=lambda _item: _item.get_priority())
-
-    def filter_items(self, key=None, limit=None):
-        '''Filters item objects filtered by key function'''
-        filtered_items = list(filter(key, self._items))
-        if limit != None:
-            filtered_items = filtered_items[:limit]
-        return filtered_items
-
-    def __iter__(self):
-        return iter(self.get_sorted_items())
-
-    def __len__(self):
-        return len(self._items)
+    def set_priority(self, priority):
+        '''Gets priority priority for this object'''
+        self._value.set_value(priority)
 
 
-class Block(BaseBlock):
+
+
+class Block(pemap.Block):
     '''Wraps collection of Item objects and associate them with priority.
     
     Instances of this class first copies each item before performing
@@ -80,7 +68,7 @@ class Block(BaseBlock):
     another block. This is by default set to True to avoid confusion
     but can be set to True to allow nested block instances.'''
     # Default priority when priority not provided.
-    _default_priority = Priority.get_default_value()
+    "_default_priority = Item.get_default_value()"
 
     # Setups priority modes
     _average_priority_modes = {"average", "avg", "mean"}
@@ -94,7 +82,7 @@ class Block(BaseBlock):
         *_max_priority_modes
     }
 
-    def __init__(self, items, priority=_default_priority, _type=object, 
+    def __init__(self, items, priority="_default_priority", _type=object, 
     strict=True, priority_mode=None, update_priorities=True):
         '''
         items: Iterator
@@ -113,28 +101,17 @@ class Block(BaseBlock):
         update_priorities: Bool
             Enables and disables updating of block and items priorities.
         '''
-        super().__init__(items, _type)
-        self._items = items
-        self._strict = strict
-        self._type = _type
-        self._strict = strict
         self._update_priorities = update_priorities
         # Calling methods with initializer causes problems.
-        # Thats why super().__init__() is fist call to __init__().
         self._setup_priority_mode(priority_mode)
         # priority_mode need to be setup before setting priority.
         # This will cause problems when methods are overiden.
         # Priority for this block may be changed.
         self._setup_priority(priority)
-        # Setup items after priority have been set from existing items.
-        # The method may modify priorities for items.
-        # Priority is passed as argument since priority argument may
-        # have been modified.
-        # This are results of calling methods within initialiser.
-        self._setup_items(items, priority)
         # Calling method within initializer is hell.
         # The instance is not yet fully created.
         # Warning has been included on the methods called by __init__().
+        super().__init__(items, _type, strict)
 
     def _setup_priority(self, priority):
         # Setup priority from average of items priorities.
@@ -183,38 +160,12 @@ class Block(BaseBlock):
         else:
             self._priority = priority
 
-    def _setup_items(self, items, priority):
+    def _setup_items(self, items):
         # Setup items to ensure they are in correct type.
         # Item objects will be created when neccessary.
         # This could make find bugs hard but it simplifies things.
         # This method is not meant to be overiden(take care)
-        new_items = []
-        for _item in items:
-            new_item = item.Item.to_item(_item)
-            # Gets object underlying item.
-            _object = new_item.get_object()
-            # Check if strict is respected(Block objects not allowed).
-            # Exception is raised if not respected.
-            if self._strict and isinstance(_object, Block):
-                err_msg = "Nested Block objects not allowed when " +\
-                    "'strict' is enabled"
-                raise TypeError(err_msg)
-            # Check if type for object is correct.
-            # Exception is if type of object does not match expected one.
-            if not isinstance(_object, self._type):
-                err_msg = "Item should have reference of type '{}' not '{}'"
-                type_name = _object.__class__.__name__
-                err_msg = err_msg.format(self._type.__name__, type_name)
-                raise TypeError(err_msg)
-            # Appends new item to items list
-            new_items.append(new_item)
-        if self._update_priorities and priority != None:
-            # Copies items to avoid modifying original ones.
-            copied_items = [_item.copy() for _item in new_items]
-            self._items = self._update_items_priorities(copied_items,
-            priority)
-        else:
-            self._items = new_items
+        super()._setup_items(items)
 
     def _setup_priority_mode(self, priority_mode):
         # This method is not meant to be overiden(take care)
@@ -360,29 +311,6 @@ class Block(BaseBlock):
         items = self.get_last_items(1)
         if items:
             return items[-1]
-        
-
-    def to_tuple(self):
-        '''Returns tuple form of block with priorities and objects'''
-        # Priority will be used as tuple key and object as value.
-        # object is the object under reference object of items
-        results = []
-        for _item in self.get_sorted_items():
-            results.append((_item.get_priority(), _item.get_object()))
-        return tuple(results)
-
-    def to_dict(self):
-        '''Returns dict form of block with priorities and objects'''
-        # This will fail if priority not hashable.
-        return dict(self.to_tuple())
-
-    def to_multi_dict(self):
-        '''Returns multi dict from items priorities and underlying objects'''
-        # Key is priority and values are underlying objects.
-        result_dict = defaultdict(set)
-        for _priority, _object in self.to_tuple():
-            result_dict[_priority].add(_object)
-        return result_dict
 
     def to_priority_queue(self, maxsize=None):
         '''Returns priority queue version of block object'''
@@ -402,82 +330,3 @@ class Block(BaseBlock):
         for priority, _object in output_tuple:
             priority_queue.put((priority, _object))
         return priority_queue
-
-
-class DeepBlock(Block):
-    ''' Varient of Block that allows extracting of deep/low-level items.
-
-    This block class differs from its parent in that it eliminates
-    nested block instances by extracting their items and then removing
-    any item that contain block instances.
-    
-    At end of day, items with block instances are removed while retaining
-    their items. This class gurantees that its items wont have any block
-    object. That makes it easy to access items that were deep into nested
-    block objects.
-    
-    `strict` is now set to False as this block type is based on nested 
-    block objects. One should now not fear to nest block objects together
-    within item objects that will be used on another block object.
-    
-    Priorities for block and items will be updated accordinly as similar
-    to its parent class.'''
-    
-    def _extract_deep_items(cls, _block):
-        # Extracts low level(deep) items from block object.
-        # This include item objects not containing block object.
-        # This method is called by _setup_items().
-        # Take care when extensing it on sub classes.
-        deep_items = []
-        # Gets item objects of block(not sorted by priority)
-        items = _block.get_items()
-        for _item in items:
-            # Gets reference from item
-            _reference = _item.get_reference() 
-            # Gets object from reference
-            _object = _reference.get_object() 
-            # Checks if object of reference is block object.
-            # Uses recursion if the object is block object.
-            # Recursion continues until non block item is found.
-            if isinstance(_object, Block):
-                # Extract non block items from the block object.
-                block_deep_items = cls._extract_deep_items(_object)
-                deep_items.extend(block_deep_items)
-            else:
-                # This item does not contain block object
-                deep_items.append(_item)
-        return deep_items
-
-    def _setup_items(self, items, priority):
-        # Setup deep items overiding existing item objects.
-        # Ensures all items are really item objects.
-        # _extract_deep_items() expectes item objects.
-        self._items = self._to_items(self._items)
-        _items = self._extract_deep_items(self)
-        # Now asks super class to setup items as usual.
-        # Items priorities will be updated as expected.
-        super()._setup_items(_items, priority)
-
-
-if __name__ == "__main__":
-    from mimap import reference
-
-    item_object = item.Item(reference.Reference("Ruth"), "b")
-    item_object2 = item.Item("Marry", "a")
-    item_object3 = item.Item("John", "c")
-
-    items = [item_object, item_object2, item_object3]
-
-    block_object = Block(items)
-    deep_object = DeepBlock([Block(items), Block([item.Item("Lord", "aa")], "z")])
-
-    queue_object = deep_object.to_priority_queue()
-    print(queue_object.get())
-    print(queue_object.get())
-    print(queue_object.get())
-    print(queue_object.get())
-    print(deep_object.extract_objects_from_items(
-        deep_object.find_items_by_priority_range()
-            ))
-    print("block priority: ", block_object.get_priority())
-    print("deep_block priority: ", deep_object.get_priority())
