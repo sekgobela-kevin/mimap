@@ -12,7 +12,9 @@ class BaseBlock():
     items as compared to Block class. It comes handy for implementing
     block class for creating block objects.'''
     def __init__(self, items, _type=object) -> None:
+        self._original_items = items
         self._items = items
+        #self._items = self.sort_items_by_priority(items)
         self._type = _type
 
     def _to_items(self, _items_like):
@@ -23,7 +25,7 @@ class BaseBlock():
 
     def copy_items(self):
         # Copies current items of block
-        return [self._item.copy() for _item in self._items]
+        return [_item.copy() for _item in self._items]
 
     def get_items(self):
         # Returns items stored in block object
@@ -374,15 +376,20 @@ class Block(BaseBlock):
     def to_dict(self):
         '''Returns dict form of block with priorities and objects'''
         # This will fail if priority not hashable.
-        return dict(self.to_tuple())
+        map = dict()
+        for priority, object_ in self.to_tuple():
+            if priority not in map:
+                map[priority] = object_
+        return map
 
     def to_multi_dict(self):
         '''Returns multi dict from items priorities and underlying objects'''
         # Key is priority and values are underlying objects.
-        result_dict = defaultdict(set)
+        result_dict = defaultdict(list)
         for _priority, _object in self.to_tuple():
-            result_dict[_priority].add(_object)
-        return result_dict
+            if _object not in result_dict[_priority]:
+                result_dict[_priority].append(_object)
+        return dict(result_dict)
 
     def to_priority_queue(self, maxsize=None):
         '''Returns priority queue version of block object'''
