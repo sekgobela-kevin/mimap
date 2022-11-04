@@ -12,4 +12,4 @@ from mimap.highlevel import *
 
 
 __name__ = "mimap"
-___version__ = "0.3.0"
+___version__ = "0.3.1"
